@@ -1,0 +1,21 @@
+# Credenciales - nunca subir
+credentials.php
+
+# Archivos de sistema de Windows
+Thumbs.db
+desktop.ini
+
+# Archivos de sistema de Mac
+.DS_Store
+
+# Archivos de configuracion de editores
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs de PHP
+*.log
+
+# Archivos de configuracion local (si en algun momento usas variables de entorno)
+.env
