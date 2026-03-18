@@ -2,10 +2,10 @@
 class mySQLConexion
 {
     //atributes
-    private $host = "127.0.0.1";
-    private $user = "root";
-    private $password = "1amjoseph";
-    private $DB = "panesBea";
+    private $host = "sql208.infinityfree.com";
+    private $user = "if0_41417339";
+    private $password = "Tobi13300";
+    private $DB = "if0_41417339_panesbea";
     private $port = "3306";
     private $status;
 

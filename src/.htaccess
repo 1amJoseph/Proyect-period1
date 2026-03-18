@@ -2,3 +2,39 @@
     Order Allow,Deny
     Deny from all
 </Files>
+```
+
+---
+
+**9. Subir los archivos con FileZilla**
+- Descarga **FileZilla** de [filezilla-project.org](https://filezilla-project.org)
+- Ábrelo y en la barra superior llena:
+  - **Host**: el FTP hostname que anotaste
+  - **Usuario**: el FTP username
+  - **Contraseña**: el FTP password
+  - **Puerto**: `21`
+- Click en **Conexión rápida**
+- En el panel derecho navega hasta la carpeta `htdocs`
+- En el panel izquierdo navega hasta tu proyecto local
+- Selecciona todos los archivos y arrástralos hacia `htdocs`
+
+Los archivos que debes subir:
+```
+.htaccess
+credentials.php
+auth.php
+logout.php
+mySQLi.php
+style.css
+index.php
+stats.php
+fax.php
+editfax.php
+productos.php
+box.php
+mov.php
+pfp.webp
+ppp.png
+icon1.png
+icon2.png
+icon3.webp
