@@ -2,10 +2,10 @@
 class mySQLConexion
 {
     //atributes
-    private $host = "sql208.infinityfree.com";
-    private $user = "if0_41417339";
-    private $password = "Tobi13300";
-    private $DB = "if0_41417339_panesbea";
+    private $host = "127.0.0.1";
+    private $user = "root";
+    private $password = "1amjoseph";
+    private $DB = "panesBea";
     private $port = "3306";
     private $status;
 
@@ -104,6 +104,58 @@ class mySQLConexion
     {
         try {
             return $this->status->query("delete from `$table` where `$reference` = $id");
+        } catch (\Throwable $th) {
+            error_log($th->getMessage());
+            die($th->getMessage());
+        }
+    }
+
+    // Metodo QUERYFILTRO: permite filtrar ventas por dia, mes o año
+    // $tipo   → 'dia', 'mes' o 'year'
+    // $valor  → el valor ingresado por el usuario (fecha, mes o año)
+    // Retorna un objeto mysqli_result con las ventas que coincidan con el filtro
+    public function QUERYFILTRO(string $tipo, string $valor)
+    {
+        // Construir el WHERE segun el tipo de filtro
+        // in_array() valida que el tipo sea uno de los valores permitidos
+        // para evitar que se inyecte cualquier otra cosa en la consulta
+        if (!in_array($tipo, ['dia', 'mes', 'year'])) {
+            return $this->status->query("SELECT * FROM venta ORDER BY id_venta DESC");
+        }
+
+        if ($tipo === 'dia') {
+            // real_escape_string() escapa el valor para prevenir inyeccion SQL
+            // DATE() compara solo la parte de fecha, ignorando la hora
+            $valor_seguro = $this->status->real_escape_string($valor);
+            $sql = "SELECT * FROM venta WHERE DATE(fecha) = '$valor_seguro' ORDER BY id_venta DESC";
+        } elseif ($tipo === 'mes') {
+            // DATE_FORMAT() formatea la fecha como 'YYYY-MM' para comparar por mes y año
+            $valor_seguro = $this->status->real_escape_string($valor);
+            $sql = "SELECT * FROM venta WHERE DATE_FORMAT(fecha, '%Y-%m') = '$valor_seguro' ORDER BY id_venta DESC";
+        } else {
+            // YEAR() extrae el año como numero entero
+            // (int) convierte el valor a entero para evitar inyecciones
+            $valor_seguro = (int) $valor;
+            $sql = "SELECT * FROM venta WHERE YEAR(fecha) = $valor_seguro ORDER BY id_venta DESC";
+        }
+
+        try {
+            return $this->status->query($sql);
+        } catch (\Throwable $th) {
+            error_log($th->getMessage());
+            die($th->getMessage());
+        }
+    }
+
+    // Metodo GETYEARS: retorna todos los años distintos que tienen ventas registradas
+    // Se usa para llenar el select de años en el filtro de editfax.php
+    // DISTINCT evita años repetidos; ORDER BY DESC muestra el mas reciente primero
+    public function GETYEARS()
+    {
+        try {
+            return $this->status->query(
+                "SELECT DISTINCT YEAR(fecha) as anio FROM venta ORDER BY anio DESC"
+            );
         } catch (\Throwable $th) {
             error_log($th->getMessage());
             die($th->getMessage());

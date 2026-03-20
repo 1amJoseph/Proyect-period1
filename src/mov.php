@@ -32,13 +32,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = "Todos los campos son obligatorios y el tipo debe ser entrada o salida.";
         } else {
             try {
-                // INSERT() ejecuta: INSERT INTO `movimiento` (id_ingrediente, tipo, cantidad) VALUES (...)
-                $SQL->INSERT(
-                    'movimiento',
-                    ['id_ingrediente', 'tipo', 'cantidad'],
-                    [$id_ingrediente, $tipo, $cantidad]
-                );
-                $mensaje = "Movimiento registrado correctamente.";
+                // Consultar el ingrediente para leer su stock actual y unidad de medida
+                // SINGLESELECT() ejecuta: SELECT * FROM `ingrediente` WHERE `id_ingrediente` = $id
+                $r_ing       = $SQL->SINGLESELECT('ingrediente', 'id_ingrediente', $id_ingrediente);
+                // fetch_assoc() obtiene la fila como arreglo asociativo [columna => valor]
+                $ing         = $r_ing->fetch_assoc();
+                // (int) convierte el stock a entero; ?? 0 evita errores si stock fuera null
+                $stockActual = (int) ($ing['stock'] ?? 0);
+
+                if ($tipo === 'salida') {
+                    // Verificar que haya suficiente stock antes de permitir la salida
+                    // Si stock - cantidad < 0 el resultado seria negativo, lo cual no se permite
+                    if ($stockActual - $cantidad < 0) {
+                        // Se informa al usuario el stock disponible con su unidad de medida
+                        // {$ing['unidad_medida']} interpola la variable dentro del string
+                        $error = "Stock insuficiente. Stock actual: $stockActual {$ing['unidad_medida']}. No se puede restar $cantidad.";
+                    } else {
+                        // Calcular el nuevo stock restando la cantidad de salida
+                        $nuevoStock = $stockActual - $cantidad;
+
+                        // UPDATE() actualiza el stock del ingrediente en la DB
+                        // Se ejecuta ANTES del INSERT para que si falla no quede un movimiento sin efecto
+                        $SQL->UPDATE(
+                            'ingrediente',
+                            "id_ingrediente = $id_ingrediente",
+                            ['stock'],
+                            [$nuevoStock]
+                        );
+
+                        // INSERT() registra el movimiento en la tabla movimiento
+                        $SQL->INSERT(
+                            'movimiento',
+                            ['id_ingrediente', 'tipo', 'cantidad'],
+                            [$id_ingrediente, $tipo, $cantidad]
+                        );
+
+                        // El mensaje incluye el nuevo stock y la unidad para informar al usuario
+                        $mensaje = "Movimiento de salida registrado. Stock actualizado: $nuevoStock {$ing['unidad_medida']}.";
+                    }
+                } else {
+                    // Para entradas se suma la cantidad al stock actual sin ninguna validacion adicional
+                    $nuevoStock = $stockActual + $cantidad;
+
+                    // UPDATE() actualiza el stock del ingrediente antes de registrar el movimiento
+                    $SQL->UPDATE(
+                        'ingrediente',
+                        "id_ingrediente = $id_ingrediente",
+                        ['stock'],
+                        [$nuevoStock]
+                    );
+
+                    // INSERT() registra el movimiento de entrada en la tabla movimiento
+                    $SQL->INSERT(
+                        'movimiento',
+                        ['id_ingrediente', 'tipo', 'cantidad'],
+                        [$id_ingrediente, $tipo, $cantidad]
+                    );
+
+                    $mensaje = "Movimiento de entrada registrado. Stock actualizado: $nuevoStock {$ing['unidad_medida']}.";
+                }
             } catch (Exception $e) {
                 // error_log() escribe el error en el log del servidor sin mostrarlo al usuario
                 error_log($e->getMessage());
@@ -109,9 +161,11 @@ while ($m = $r_movimientos->fetch_assoc()) {
     // fetch_assoc() obtiene la fila como arreglo asociativo [columna => valor]
     $ing   = $r_ing->fetch_assoc();
 
-    // Si el ingrediente fue eliminado, mostrar '(eliminado)' en su lugar
-    // El operador ternario ?: evalua: si $ing existe usa $ing['nombre'], si no usa '(eliminado)'
-    $m['nombre_ingrediente'] = $ing ? $ing['nombre'] : '(eliminado)';
+    // Enriquecer el movimiento con datos del ingrediente antes de mostrarlo en la tabla
+    // El operador ternario ?: retorna el primer valor si $ing existe, si no el segundo
+    // Si el ingrediente fue eliminado de la DB, se usan valores de reemplazo inofensivos
+    $m['nombre_ingrediente'] = $ing ? $ing['nombre']        : '(eliminado)';
+    $m['unidad_medida']      = $ing ? $ing['unidad_medida'] : '';
     $movimientos[] = $m;
 }
 
@@ -182,6 +236,7 @@ while ($i = $r_ings->fetch_assoc()) {
                                     <th>Ingrediente</th>
                                     <th>Tipo</th>
                                     <th>Cantidad</th>
+                                    <th>Unidad</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -191,7 +246,7 @@ while ($i = $r_ings->fetch_assoc()) {
                                 // Se muestra un mensaje cuando no hay movimientos registrados
                                 if (empty($movimientos)): ?>
                                     <tr>
-                                        <td colspan="5" style="text-align:center; color:#94a3b8; padding:2rem;">
+                                        <td colspan="6" style="text-align:center; color:#94a3b8; padding:2rem;">
                                             No hay movimientos registrados.
                                         </td>
                                     </tr>
@@ -212,17 +267,12 @@ while ($i = $r_ings->fetch_assoc()) {
                                                 </span>
                                             </td>
                                             <td><?= $m['cantidad'] ?></td>
+                                            <!-- Unidad de medida del ingrediente obtenida al cargar los movimientos -->
+                                            <td><?= htmlspecialchars($m['unidad_medida']) ?></td>
                                             <td>
                                                 <div class="acciones">
-                                                    <!-- Se pasan id, idIng, tipo y cantidad como argumentos al JS
-                                                         para precargar los campos del modal de edicion -->
-                                                    <button class="btn btn-edit"
-                                                        onclick="abrirEditar(
-                                                            <?= $m['id_movimientio'] ?>,
-                                                            <?= $m['id_ingrediente'] ?>,
-                                                            '<?= $m['tipo'] ?>',
-                                                            <?= $m['cantidad'] ?>
-                                                        )">Editar</button>
+                                                    <!-- Editar fue removido: los movimientos ya no son editables
+                                                         porque afectan directamente el stock al ser registrados -->
                                                     <button class="btn btn-delete"
                                                         onclick="confirmarEliminar(<?= $m['id_movimientio'] ?>)">Eliminar</button>
                                                 </div>
